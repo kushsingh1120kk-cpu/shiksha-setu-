@@ -1,0 +1,42 @@
+name: get_top_marks_shiksha_setu
+description: "CBSE Board Study App for Class 9-12 with PDF, Voice, and Offline Support"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.3.0
+  pdf: ^3.10.0
+  printing: ^5.11.0
+  permission_handler: ^11.4.3
+  speech_to_text: ^6.6.0
+  text_to_speech: ^0.2.3
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  http: ^1.1.0
+  intl: ^0.19.0
+  flutter_local_notifications: ^16.2.0
+  connectivity_plus: ^5.0.1
+  sqflite: ^2.3.0
+  dio: ^5.3.1
+  get: ^4.6.5
+  provider: ^6.0.0
+  flutter_svg: ^2.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/data/
