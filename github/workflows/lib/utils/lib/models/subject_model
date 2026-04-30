@@ -1,0 +1,101 @@
+class Subject {
+  final String name;
+  final String className;
+  final String stream;
+  final List<Chapter> chapters;
+  final List<Assignment> assignments;
+
+  Subject({
+    required this.name,
+    required this.className,
+    required this.stream,
+    required this.chapters,
+    required this.assignments,
+  });
+
+  factory Subject.fromJson(Map<String, dynamic> json) {
+    return Subject(
+      name: json['name'] as String,
+      className: json['className'] as String,
+      stream: json['stream'] as String,
+      chapters: (json['chapters'] as List)
+          .map((ch) => Chapter.fromJson(ch as Map<String, dynamic>))
+          .toList(),
+      assignments: (json['assignments'] as List)
+          .map((a) => Assignment.fromJson(a as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'className': className,
+    'stream': stream,
+    'chapters': chapters.map((ch) => ch.toJson()).toList(),
+    'assignments': assignments.map((a) => a.toJson()).toList(),
+  };
+}
+
+class Chapter {
+  final String title;
+  final String pdfUrl;
+  final int pages;
+  final bool isBookmarked;
+
+  Chapter({
+    required this.title,
+    required this.pdfUrl,
+    required this.pages,
+    this.isBookmarked = false,
+  });
+
+  factory Chapter.fromJson(Map<String, dynamic> json) {
+    return Chapter(
+      title: json['title'] as String,
+      pdfUrl: json['pdfUrl'] as String,
+      pages: json['pages'] as int,
+      isBookmarked: json['isBookmarked'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'pdfUrl': pdfUrl,
+    'pages': pages,
+    'isBookmarked': isBookmarked,
+  };
+}
+
+class Assignment {
+  final String title;
+  final String description;
+  final String fileUrl;
+  final DateTime dueDate;
+  final bool isCompleted;
+
+  Assignment({
+    required this.title,
+    required this.description,
+    required this.fileUrl,
+    required this.dueDate,
+    this.isCompleted = false,
+  });
+
+  factory Assignment.fromJson(Map<String, dynamic> json) {
+    return Assignment(
+      title: json['title'] as String,
+      description: json['description'] as String,
+      fileUrl: json['fileUrl'] as String,
+      dueDate: DateTime.parse(json['dueDate'] as String),
+      isCompleted: json['isCompleted'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'description': description,
+    'fileUrl': fileUrl,
+    'dueDate': dueDate.toIso8601String(),
+    'isCompleted': isCompleted,
+  };
+}
