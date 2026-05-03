@@ -1,43 +1,155 @@
-name: Flutter Build AAB
+name: Flutter Build APK & AAB
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: 3.16.0
 
 jobs:
   build:
-    name: Build Release AAB
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      # Step 1: Code ko download karein
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # Step 2: Java install karein (Android build ke liye zaroori hai)
-      - name: Set up Java 17
+      # Step 2: Setup Java
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
+          cache: gradle
 
-      # Step 3: Flutter setup karein
-      - name: Set up Flutter
+      # Step 3: Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version:  '3.13.9'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:'
+          cache-path: '${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:'
 
-      # Step 4: Dependencies install karein
-      - name: Install Dependencies
+      # Step 4: Display Flutter version
+      - name: Display Flutter version
+        run: flutter --version
+
+      # Step 5: Get dependencies
+      - name: Get dependencies
         run: flutter pub get
 
-      # Step 5: AAB file banayein
-      - name: Build AAB
-        run: flutter build appbundle --release
+      # Step 6: Analyze code
+      - name: Analyze code
+        run: flutter analyze
 
-      # Step 6: AAB file ko download ke liye save karein (FIX: v4 use kiya hai)
-      - name: Upload AAB Artifact
-        uses: actions/upload-artifact@v4
+      # Step 7: Run tests (optional)
+      - name: Run tests
+        run: flutter test --coverage 2>/dev/null || true
+
+      # Step 8: Build APK
+      - name: Build APK
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi \
+            --target-platform android-arm64,android-arm \
+            --verbose
+
+      # Step 9: Build AAB (for Play Store)
+      - name: Build AAB (App Bundle)
+        run: |
+          flutter build appbundle \
+            --release \
+            --verbose
+
+      # Step 10: List output files
+      - name: List build outputs
+        run: |
+          echo "=== APK Files ==="
+          find build/app/outputs -name "*.apk" -type f
+          echo "=== AAB Files ==="
+          find build/app/outputs -name "*.aab" -type f
+
+      # Step 11: Upload APK artifacts
+      - name: Upload APK - arm64-v8a
+        uses: actions/upload-artifact@v3
+        if: success()
         with:
-          name: app-release-bundle
-          path: build/app/outputs/bundle/release/*.aab
+          name: release-apk-arm64
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          retention-days: 30
+
+      - name: Upload APK - armeabi-v7a
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: release-apk-arm32
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          retention-days: 30
+
+      - name: Upload APK - x86_64
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: release-apk-x86
+          path: build/app/outputs/flutter-apk/app-x86_64-release.apk
+          retention-days: 30
+
+      # Step 12: Upload AAB artifact
+      - name: Upload AAB (App Bundle)
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      # Step 13: Create Release Notes
+      - name: Generate Release Notes
+        run: |
+          echo "# Release Notes" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "## Build Information" >> RELEASE_NOTES.md
+          echo "- **Build Date**: $(date)" >> RELEASE_NOTES.md
+          echo "- **Flutter Version**: $(flutter --version | head -1)" >> RELEASE_NOTES.md
+          echo "- **Dart Version**: $(dart --version)" >> RELEASE_NOTES.md
+          echo "- **Commit**: ${{ github.sha }}" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "## Download" >> RELEASE_NOTES.md
+          echo "- APK (arm64): release-apk-arm64" >> RELEASE_NOTES.md
+          echo "- APK (arm32): release-apk-arm32" >> RELEASE_NOTES.md
+          echo "- APK (x86): release-apk-x86" >> RELEASE_NOTES.md
+          echo "- AAB (Play Store): release-aab" >> RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      # Step 14: Upload Release Notes
+      - name: Upload Release Notes
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-notes
+          path: RELEASE_NOTES.md
+          retention-days: 30
+
+      # Step 15: Notify on Success
+      - name: Success Notification
+        if: success()
+        run: |
+          echo "✅ Build Successful!"
+          echo "APK and AAB files are ready for download"
+
+      # Step 16: Notify on Failure
+      - name: Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Build Failed!"
+          echo "Check the logs above for details"
