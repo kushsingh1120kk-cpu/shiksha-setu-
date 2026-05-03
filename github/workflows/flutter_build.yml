@@ -1,0 +1,30 @@
+name: Flutter Build AAB
+
+on:
+  push:
+    branches: [ main, master ] # Ye tab run hoga jab aap code push karenge
+  workflow_dispatch: # Ye manual run ke liye hai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0' # Aap apni version yahan change kar sakte hain
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build AAB (Android App Bundle)
+        run: flutter build appbundle --release
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: shiksha-setu-release
+          path: build/app/outputs/bundle/release/*.aab
