@@ -2,30 +2,42 @@ name: Flutter Build AAB
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
 
 jobs:
   build:
+    name: Build Release AAB
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      # Step 1: Code ko download karein
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
+      # Step 2: Java install karein (Android build ke liye zaroori hai)
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
         with:
-          flutter-version: '3.22.0'
+          java-version: '17'
+          distribution: 'temurin'
 
-      - run: flutter pub get
-
-      # 🔥 Fix Android build issues
-      - run: flutter doctor
-
-      # 🔥 Build AAB
-      - run: flutter build appbundle --release
-
-      # 📦 Upload AAB
-      - uses: actions/upload-artifact@v3
+      # Step 3: Flutter setup karein
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: app-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          flutter-version: 'stable' 
+
+      # Step 4: Dependencies install karein
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # Step 5: AAB file banayein
+      - name: Build AAB
+        run: flutter build appbundle --release
+
+      # Step 6: AAB file ko download ke liye save karein (FIX: v4 use kiya hai)
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-bundle
+          path: build/app/outputs/bundle/release/*.aab
