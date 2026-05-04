@@ -1,155 +1,71 @@
-name: Flutter Build APK & AAB
+name: Flutter Build APK + AAB
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  FLUTTER_VERSION: 3.16.0
-
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    permissions:
+      contents: read
+      packages: write
     steps:
-      # Step 1: Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      # Step 2: Setup Java
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          distribution: 'temurin'
-          cache: gradle
+          distribution: 'zulu'
+          java-version: '17'
 
-      # Step 3: Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: '3.22.0'
           channel: 'stable'
           cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:'
-          cache-path: '${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:'
 
-      # Step 4: Display Flutter version
-      - name: Display Flutter version
-        run: flutter --version
-
-      # Step 5: Get dependencies
-      - name: Get dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      # Step 6: Analyze code
-      - name: Analyze code
-        run: flutter analyze
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
-      # Step 7: Run tests (optional)
-      - name: Run tests
-        run: flutter test --coverage 2>/dev/null || true
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
 
-      # Step 8: Build APK
+      # साफ और तेज बिल्ड के लिए
+      - name: Clean & Build
+        run: |
+          flutter clean
+          flutter pub get
+
       - name: Build APK
-        run: |
-          flutter build apk \
-            --release \
-            --split-per-abi \
-            --target-platform android-arm64,android-arm \
-            --verbose
+        run: flutter build apk --release
 
-      # Step 9: Build AAB (for Play Store)
-      - name: Build AAB (App Bundle)
-        run: |
-          flutter build appbundle \
-            --release \
-            --verbose
+      - name: Build AAB
+        run: flutter build appbundle --release
 
-      # Step 10: List output files
-      - name: List build outputs
-        run: |
-          echo "=== APK Files ==="
-          find build/app/outputs -name "*.apk" -type f
-          echo "=== AAB Files ==="
-          find build/app/outputs -name "*.aab" -type f
-
-      # Step 11: Upload APK artifacts
-      - name: Upload APK - arm64-v8a
-        uses: actions/upload-artifact@v3
-        if: success()
+      # 🔥 यहाँ v4 यूज़ किया गया है
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: release-apk-arm64
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          retention-days: 30
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+          if-no-files-found: error
 
-      - name: Upload APK - armeabi-v7a
-        uses: actions/upload-artifact@v3
-        if: success()
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
         with:
-          name: release-apk-arm32
-          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-          retention-days: 30
-
-      - name: Upload APK - x86_64
-        uses: actions/upload-artifact@v3
-        if: success()
-        with:
-          name: release-apk-x86
-          path: build/app/outputs/flutter-apk/app-x86_64-release.apk
-          retention-days: 30
-
-      # Step 12: Upload AAB artifact
-      - name: Upload AAB (App Bundle)
-        uses: actions/upload-artifact@v3
-        if: success()
-        with:
-          name: release-aab
+          name: app-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
-          retention-days: 30
-
-      # Step 13: Create Release Notes
-      - name: Generate Release Notes
-        run: |
-          echo "# Release Notes" > RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "## Build Information" >> RELEASE_NOTES.md
-          echo "- **Build Date**: $(date)" >> RELEASE_NOTES.md
-          echo "- **Flutter Version**: $(flutter --version | head -1)" >> RELEASE_NOTES.md
-          echo "- **Dart Version**: $(dart --version)" >> RELEASE_NOTES.md
-          echo "- **Commit**: ${{ github.sha }}" >> RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "## Download" >> RELEASE_NOTES.md
-          echo "- APK (arm64): release-apk-arm64" >> RELEASE_NOTES.md
-          echo "- APK (arm32): release-apk-arm32" >> RELEASE_NOTES.md
-          echo "- APK (x86): release-apk-x86" >> RELEASE_NOTES.md
-          echo "- AAB (Play Store): release-aab" >> RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
-
-      # Step 14: Upload Release Notes
-      - name: Upload Release Notes
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-notes
-          path: RELEASE_NOTES.md
-          retention-days: 30
-
-      # Step 15: Notify on Success
-      - name: Success Notification
-        if: success()
-        run: |
-          echo "✅ Build Successful!"
-          echo "APK and AAB files are ready for download"
-
-      # Step 16: Notify on Failure
-      - name: Failure Notification
-        if: failure()
-        run: |
-          echo "❌ Build Failed!"
-          echo "Check the logs above for details"
+          retention-days: 7
+          if-no-files-found: error
